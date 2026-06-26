@@ -1,0 +1,16 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/forms';
+
+@theme {
+  --breakpoint-3xl: 1800px;
+
+  --color-blue-100: #a4d7f4;
+  --color-blue-300: #0077bf;
+  --color-blue-400: #0b548b;
+  --color-blue-600: #004e9b;
+  --color-blue-800: #003471;
+
+  --color-red-400: #c61828;
+  --color-red-700: #a51220;
+}

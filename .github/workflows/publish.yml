@@ -1,0 +1,70 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test with Prettier ${{ matrix.prettier }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        prettier:
+          - 3.7.3
+          - 3.8.4
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - run: npm install --global npm@11.17.0
+      - run: npm ci --ignore-scripts
+      - run: npm install --no-save --package-lock=false --ignore-scripts prettier@${{ matrix.prettier }}
+      - run: test "$(node -p "require('prettier/package.json').version")" = "${{ matrix.prettier }}"
+      - run: npm test
+
+  publish:
+    name: Publish package
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - run: npm install --global npm@11.17.0
+      - run: npm ci --ignore-scripts
+      - name: Verify tag version
+        run: |
+          package_version="$(node -p "require('./package.json').version")"
+          tag_version="${GITHUB_REF_NAME#v}"
+          test "$tag_version" = "$package_version"
+      - run: npm pack --dry-run
+      - name: Check whether the version is already published
+        id: published
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          if npm view "${package_name}@${package_version}" version --json >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.published.outputs.exists != 'true'
+        run: npm publish --access public

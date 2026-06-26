@@ -1,0 +1,8 @@
+@theme {
+  --text-hero: 4rem;
+  --text-2\.5xl: 1.75rem;
+  --text-hero--line-height: 1.1;
+  --text-hero--letter-spacing: -0.02em;
+  --font-display: 'Inter', sans-serif;
+  --color-primary: #4541a3;
+}
