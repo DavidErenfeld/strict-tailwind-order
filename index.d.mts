@@ -12,6 +12,7 @@ declare module 'prettier' {
     strictTailwindMaxClassLineLength?: number;
     strictTailwindAttributes?: string[];
     strictTailwindFunctions?: string[];
+    strictTailwindPreserveWhitespace?: boolean;
     strictTailwindBreakpoints?: string[];
     strictTailwindStates?: string[];
     strictTailwindAutoDetectStylesheet?: boolean;

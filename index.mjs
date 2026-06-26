@@ -42,14 +42,26 @@ function buildSortOptions(prettierOptions) {
     maxClassLineLength: prettierOptions.strictTailwindMaxClassLineLength,
   };
 
-  return resolveSortOptions(
-    {
-      settings: {strictTailwindOrder: pluginSettings},
-      filename: prettierOptions.filepath || '',
-      cwd: process.cwd(),
-    },
-    ruleOptions,
-  );
+  return {
+    ...resolveSortOptions(
+      {
+        settings: {strictTailwindOrder: pluginSettings},
+        filename: prettierOptions.filepath || '',
+        cwd: process.cwd(),
+      },
+      ruleOptions,
+    ),
+    preserveWhitespace: prettierOptions.strictTailwindPreserveWhitespace === true,
+  };
+}
+
+function joinTokensWithSeparators(tokens, separators) {
+  let result = separators[0] || '';
+  for (let index = 0; index < tokens.length; index += 1) {
+    result += tokens[index];
+    result += separators[index + 1] || '';
+  }
+  return result;
 }
 
 function shouldWrap(source, maxLineLength) {
@@ -60,13 +72,16 @@ function shouldWrap(source, maxLineLength) {
 }
 
 function sortClassValue(source, sortOptions, allowWrapping = false) {
-  const {tokens} = tokenize(source);
+  const {tokens, separators} = tokenize(source);
   if (tokens.length < 2) {
     return {value: source, lines: null, changed: false};
   }
 
   const items = sortTokenItems(tokens, sortOptions);
-  const value = items.map((item) => item.token).join(' ');
+  const sortedTokens = items.map((item) => item.token);
+  const value = sortOptions.preserveWhitespace
+    ? joinTokensWithSeparators(sortedTokens, separators)
+    : sortedTokens.join(' ');
   const changed = value !== source;
 
   if (!allowWrapping || !shouldWrap(value, sortOptions.maxClassLineLength)) {
@@ -403,6 +418,12 @@ export const options = {
     default: [{value: []}],
     category: CATEGORY,
     description: 'Additional attributes that contain sortable class lists.',
+  },
+  strictTailwindPreserveWhitespace: {
+    type: 'boolean',
+    default: false,
+    category: CATEGORY,
+    description: 'Preserve existing whitespace when sorting does not require family-safe wrapping.',
   },
   strictTailwindFunctions: {
     type: 'string',

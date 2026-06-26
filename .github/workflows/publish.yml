@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   test:
-    name: Test with Prettier ${{ matrix.prettier }}
+    name: Prettier ${{ matrix.prettier }} / Tailwind plugin ${{ matrix.tailwind_plugin }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -22,6 +22,8 @@ jobs:
         prettier:
           - 3.7.3
           - 3.8.4
+        tailwind_plugin:
+          - 0.8.0
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
@@ -30,9 +32,11 @@ jobs:
           package-manager-cache: false
       - run: npm install --global npm@11.17.0
       - run: npm ci --ignore-scripts
-      - run: npm install --no-save --package-lock=false --ignore-scripts prettier@${{ matrix.prettier }}
+      - run: npm install --no-save --package-lock=false --ignore-scripts prettier@${{ matrix.prettier }} prettier-plugin-tailwindcss@${{ matrix.tailwind_plugin }}
       - run: test "$(node -p "require('prettier/package.json').version")" = "${{ matrix.prettier }}"
+      - run: test "$(node -p "require('./node_modules/prettier-plugin-tailwindcss/package.json').version")" = "${{ matrix.tailwind_plugin }}"
       - run: npm test
+      - run: npm pack --dry-run
 
   publish:
     name: Publish package
