@@ -1,61 +1,248 @@
 # strict-tailwind-order
 
-A Prettier 3 plugin that applies the same strict functional Tailwind class order and family-safe class-line wrapping previously provided by `@daviderenfeld/eslint-plugin-strict-tailwind-order`.
+A Prettier 3 plugin and CLI that runs the official `prettier-plugin-tailwindcss` first, then applies strict functional class ordering and family-safe class-line wrapping as the final stage.
+
+The package does not fork, vendor, copy, or reimplement the official plugin.
+
+## Requirements
+
+- Node.js `>=20.19`
+- Prettier `>=3.7.0 <4.0.0`
+- `prettier-plugin-tailwindcss >=0.8.0 <0.9.0`
 
 ## Install
 
 ```bash
-pnpm add -D prettier strict-tailwind-order
+npm install -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
+```
+
+With pnpm:
+
+```bash
+pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
 ```
 
 ## Configure
 
+Use one regular Prettier configuration:
+
 ```js
-/** @type {import('prettier').Config} */
 const config = {
   semi: true,
   singleQuote: true,
-  bracketSpacing: false,
   printWidth: 120,
-  plugins: ['strict-tailwind-order'],
+  plugins: ['prettier-plugin-tailwindcss', 'strict-tailwind-order'],
 };
 
 export default config;
 ```
 
-Load this plugin last when other Prettier parser plugins are used.
+Run the `strict-tailwind-order` CLI rather than raw `prettier` when both sorters are configured. The CLI creates two isolated configurations internally:
 
-No ESLint integration or ESLint configuration is required.
+```text
+source
+→ Prettier + prettier-plugin-tailwindcss
+→ Prettier + strict-tailwind-order
+→ final output
+```
 
-## Defaults
+Other parser and language plugins remain available in both stages. The official plugin is removed from the strict stage and cannot run again after strict sorting or wrapping.
 
-- Sorts Vue/HTML `class`, JSX `className`, Vue transition class attributes, and common class helper functions.
-- Automatically detects `main.css`, `app.css`, `styles.css`, `globals.css`, `tailwind.css`, and imported stylesheet entry points.
-- Detects sibling source layouts such as `src/js` with `src/css`, build layouts such as `resources/builds/default/js` with `css`, and page entry files backed by `pages/<page>/src/main.css`.
-- Supports multi-page repositories without selecting a stylesheet from another page.
+## CLI
+
+```bash
+npx strict-tailwind-order --write .
+npx strict-tailwind-order --check .
+npx strict-tailwind-order --write src
+npx strict-tailwind-order --check src/App.vue
+npx strict-tailwind-order --check "src/**/*.{js,ts,jsx,tsx,vue,html,css}"
+```
+
+`--write` performs both stages in memory and writes only the final output after both stages succeed. `--check` uses the same pipeline without modifying files.
+
+The CLI uses the consumer project's Prettier configuration, overrides, `.prettierignore`, parser inference, installed Prettier, and installed official plugin.
+
+### Explicit Prettier config
+
+When the Prettier config is outside a standard discovery location, pass it explicitly:
+
+```bash
+strict-tailwind-order --write . --config config/prettier.config.mjs
+strict-tailwind-order --check pages/01/src/App.vue --config config/prettier.config.mjs
+```
+
+The option may appear before or after the inputs:
+
+```bash
+strict-tailwind-order --config config/prettier.config.mjs --write .
+strict-tailwind-order --write . --config config/prettier.config.mjs
+```
+
+`--config-path` is an alias for `--config`. Relative paths are resolved from the current working directory; absolute paths are supported. The same resolved config is used by both stages, including filepath-based `overrides`, additional plugins, Tailwind options, and environment-dependent logic such as `process.env.PAGE`.
+
+The CLI does not silently treat `config/prettier.config.mjs` as a special global fallback. Use `--config` when the file is not discoverable by Prettier. This avoids ambiguous or surprising config selection in generic projects.
+
+## Package scripts
+
+Config in a standard location:
+
+```json
+{
+  "scripts": {
+    "format": "strict-tailwind-order --write .",
+    "format:check": "strict-tailwind-order --check ."
+  }
+}
+```
+
+Config in `config/prettier.config.mjs`:
+
+```json
+{
+  "scripts": {
+    "format": "strict-tailwind-order --write . --config config/prettier.config.mjs",
+    "format:check": "strict-tailwind-order --check . --config config/prettier.config.mjs"
+  }
+}
+```
+
+For multi-page projects, keep the existing command that sets `PAGE` and replace only the raw `prettier` executable with `strict-tailwind-order`, adding `--config config/prettier.config.mjs`.
+
+## CI
+
+```yaml
+- run: npm ci
+- run: npm run format:check
+```
+
+## Pre-commit
+
+Pass the staged file paths to the local CLI. Do not run the official plugin in a separate command after it.
+
+```bash
+npx strict-tailwind-order --write src/App.vue src/components/Card.tsx
+```
+
+## Official plugin options
+
+The official stage receives the project's official options unchanged, including supported stylesheet, config, attribute, function, duplicate, and whitespace options.
+
+The strict stage maps these options when an equivalent exists:
+
+| Official option | Strict option |
+| --- | --- |
+| `tailwindStylesheet` or `tailwindEntryPoint` | `strictTailwindStylesheet` |
+| `tailwindAttributes` | `strictTailwindAttributes` |
+| `tailwindFunctions` | `strictTailwindFunctions` |
+| `tailwindPreserveWhitespace` | `strictTailwindPreserveWhitespace` |
+
+`tailwindConfig`, `tailwindPackageName`, and `tailwindPreserveDuplicates` remain official-stage options. The strict stage removes them rather than passing unknown options to Prettier.
+
+## Strict options
+
+```js
+const config = {
+  plugins: ['prettier-plugin-tailwindcss', 'strict-tailwind-order'],
+  strictTailwindMaxClassLineLength: 100,
+  strictTailwindStylesheet: 'src/main.css',
+  strictTailwindAttributes: ['button-class'],
+  strictTailwindFunctions: ['cx'],
+  strictTailwindPreserveWhitespace: false,
+};
+
+export default config;
+```
+
+`strictTailwindStylesheet` is optional because stylesheet discovery remains enabled by default. Set `strictTailwindMaxClassLineLength` to `0` to disable class-content wrapping.
+
+## Vue regular HTML self-closing compatibility
+
+The combined CLI protects regular lowercase HTML elements that are written as self-closing Vue template elements before the official stage, restores them before the strict stage, and preserves their final structure:
+
+```vue
+<p class="mb-4 px-2 md:mb-8 md:px-4" />
+```
+
+The compatibility layer does not convert the element to `<p></p>` or to a fragment. It does not rewrite Vue components, void elements, already-closed regular elements, comments, script strings, style content, directives, or class bindings. Class values remain available to the official stage and are then sorted and wrapped by strict as the final operation.
+
+## Existing strict behavior
+
+- Sorts Vue and HTML `class`, JSX and TSX `className`, Vue transition class attributes, dynamic class strings, and configured helper functions.
+- Detects common stylesheet entry points, imported local stylesheets, sibling `src/js` and `src/css`, `resources/builds/default/js` and `css`, and isolated multi-page layouts.
 - Detects Tailwind v4 breakpoints, custom classes, `@utility`, and `@custom-variant` declarations.
-- Formats self-closing regular HTML elements inside Vue while preserving `/>`.
-- Wraps class content after 100 characters without splitting a utility family across lines.
-- Keeps unknown classes at the end in their original order.
+- Preserves regular HTML self-closing elements inside Vue.
+- Wraps class content without splitting utility families.
+- Keeps unknown classes stable at the end.
 
-## Options
+## Missing or incompatible dependencies
+
+The CLI fails without modifying files when the consumer project is missing Prettier or `prettier-plugin-tailwindcss`.
+
+It also reports the detected version, supported range, and installation command when either dependency is outside the supported range.
+
+The official plugin can be updated independently within `>=0.8.0 <0.9.0`. A newer minor line must be verified before extending that range.
+
+## PhpStorm File Watcher
+
+Disable PhpStorm's built-in **Run Prettier on save** for the same files. Otherwise the built-in formatter can race with the two-stage CLI and replace the final strict order.
+
+Open:
+
+```text
+Settings → Tools → File Watchers
+```
+
+Create a custom watcher with these values.
+
+### Config in a standard location
+
+Linux and macOS:
+
+```text
+Program: $ProjectFileDir$/node_modules/.bin/strict-tailwind-order
+Arguments: --write "$FilePath$"
+Working directory: $ProjectFileDir$
+Output paths to refresh: $FilePath$
+```
+
+Windows:
+
+```text
+Program: $ProjectFileDir$\node_modules\.bin\strict-tailwind-order.cmd
+Arguments: --write "$FilePath$"
+Working directory: $ProjectFileDir$
+Output paths to refresh: $FilePath$
+```
+
+### Config in `config/prettier.config.mjs`
+
+```text
+Program: node_modules/.bin/strict-tailwind-order
+Arguments: --write "$FilePath$" --config config/prettier.config.mjs
+Working directory: $ProjectFileDir$
+```
+
+Configure the watcher for each supported file type or for a project scope covering the required files. The command receives only the current file, including paths containing spaces.
+
+Use these watcher settings:
+
+- Clear **Create output file from stdout**.
+- Set console output to appear on errors.
+- Clear **Trigger the watcher on external changes** to prevent the CLI write from starting another watcher run.
+- Keep the working directory at the project root so dependency, config, stylesheet, and ignore resolution use the consumer project.
+
+Save the file twice during setup. The first save may format it; the second must produce no change.
+
+PhpStorm can store a project-level watcher under `.idea` when the watcher is created at project level. Commit that IDE configuration only when the team intentionally shares it and has reviewed the generated paths.
+
+## Direct Prettier plugin usage
+
+The original direct plugin mode remains available for projects that do not use `prettier-plugin-tailwindcss`:
 
 ```js
 export default {
   plugins: ['strict-tailwind-order'],
-  strictTailwindMaxClassLineLength: 100,
-  strictTailwindStylesheet: 'src/main.css', // optional; auto-detected by default
-  strictTailwindAttributes: ['button-class'],
-  strictTailwindFunctions: ['cx'],
 };
 ```
 
-Set `strictTailwindMaxClassLineLength` to `0` to disable class-content wrapping.
-
-## Migration from the ESLint plugin
-
-1. Remove `@daviderenfeld/eslint-plugin-strict-tailwind-order` from the ESLint configuration.
-2. Remove the old package.
-3. Install this package.
-4. Add it to the Prettier `plugins` array.
-5. Do not load `prettier-plugin-tailwindcss` at the same time, because both plugins sort the same class strings.
+Raw Prettier format-on-save cannot guarantee the required official-first and strict-last execution when both sorter plugins are loaded in one run. Use the CLI, a package script, CI command, pre-commit command, or PhpStorm File Watcher for the combined architecture.

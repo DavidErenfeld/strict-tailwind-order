@@ -1,4 +1,3 @@
-/** @type {import('prettier').Config} */
 const config = {
   semi: true,
   singleQuote: true,
@@ -8,7 +7,7 @@ const config = {
   htmlWhitespaceSensitivity: 'css',
   printWidth: 120,
   tabWidth: 2,
-  plugins: ['strict-tailwind-order'],
+  plugins: ['prettier-plugin-tailwindcss', 'strict-tailwind-order'],
 };
 
 export default config;
