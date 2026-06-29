@@ -1,19 +1,19 @@
-# Test Report — strict-tailwind-order 1.0.1
+# Test Report — strict-tailwind-order 1.0.1 release and 1.0.2 candidate
 
-Test and release completion date: 2026-06-29
+Validation date: 2026-06-29
 
 ## Release and Git state
 
 - Published npm version: `strict-tailwind-order@1.0.1`.
 
-- Current package version: `1.0.1`.
+- Current package version: `1.0.2`.
 
 - Public/default branch: `master`.
 
 - Release commit:
 
   ```text
-  fba9b3c13e39633bc4381ae4ffcfcf80fba24f80
+  2c7d938
   ```
 
 - Release tag:
@@ -33,6 +33,60 @@ Test and release completion date: 2026-06-29
 - Publication through npm Trusted Publisher and GitHub Actions OIDC is verified.
 
 - The release workflow did not use a fixed npm publication token.
+
+## 1.0.2 regression fix validation
+
+- Published npm version remains `strict-tailwind-order@1.0.1`.
+- Local candidate version is `1.0.2`; it is not tagged or published.
+- The candidate changes are uncommitted over sanitized `master` commit `2380e812`.
+- Fixed prefix collisions between markers such as `Element1` and `Element10` and between `Entity1` and `Entity10`.
+- Marker names now include an unambiguous terminator, and restoration processes longer markers first.
+- Added regression coverage for 12 protected self-closing HTML elements and 11 protected entity-like attribute values.
+
+Automated suite:
+
+```text
+tests 121
+pass 121
+fail 0
+```
+
+Package verification:
+
+```text
+npm pack --dry-run passed
+package files 19
+```
+
+### Nine-project consumer matrix
+
+All project names remain anonymized.
+
+| Consumer | Targets | Relevant files | First-write changes | Second-write changes | Placeholder leaks | Tag-structure differences | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Consumer-A | 1 | 9 | 8 | 0 | 0 | 0 | passed |
+| Consumer-B | 1 | 80 | 64 | 0 | 0 | 0 | formatting passed; build archive dependency missing |
+| Consumer-C | 1 | 17 | 12 | 0 | 0 | 0 | passed |
+| Consumer-D | 2 | 32 | 20 | 0 | 0 | 0 | passed |
+| Consumer-E | 1 | 18 | 15 | 0 | 0 | 0 | passed |
+| Consumer-F | 1 | 9 | 8 | 0 | 0 | 0 | one existing syntax error remained unchanged |
+| Consumer-G | 1 | 60 | 43 | 0 | 0 | 0 | passed |
+| Consumer-H | 2 | 26 | 0 | 0 | 0 | 0 | passed |
+| Consumer-I | 1 | 11 | 8 | 0 | 0 | 0 | passed |
+| Total | 11 | 262 | 178 | 0 | 0 | 0 | formatting regression passed |
+
+Additional structural validation:
+
+```text
+regular lowercase self-closing elements inspected 964
+files containing at least 10 protected elements 29
+hash differences between first and second write 0
+build targets passed 10/11
+```
+
+The existing syntax failure in `Consumer-F` is a malformed decimal entity missing a semicolon. The file hash remained unchanged. The single build failure in `Consumer-B` is caused by a dependency absent from the supplied archive, not by formatter output.
+
+No `iframe0`, numbered replacement tag, entity marker, or `StrictTailwindOrderSelfClosing` marker leaked into final output.
 
 ## Released architecture
 

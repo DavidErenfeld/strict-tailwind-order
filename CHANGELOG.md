@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.2] - 2026-06-29
+
+### Fixed
+
+* Prevented prefix collisions between double-digit Vue protection markers such as `Element1` and `Element10`.
+
+* Prevented the equivalent collision for protected entity markers such as `Entity1` and `Entity10`.
+
+* Preserved original self-closing HTML tag names instead of producing invalid elements such as `<iframe0>`.
+
+* Restored protected markers from longest to shortest as an additional safeguard.
+
+### Tests
+
+* Added regression coverage for 12 regular self-closing Vue HTML elements.
+
+* Added regression coverage for 11 protected entity-like attribute values.
+
+* Verified full two-stage pipeline idempotence after marker restoration.
+
+* Verified all 121 automated tests.
+
+* Verified nine anonymized consumer projects across 11 targets and 262 relevant files: 178 first-pass changes, zero second-pass changes, zero leaked placeholders, zero tag-structure differences, and 10 of 11 builds passed; the remaining build was blocked by a dependency missing from the supplied archive.
+
 ## [1.0.1] - 2026-06-29
 
 ### Added

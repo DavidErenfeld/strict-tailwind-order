@@ -1,6 +1,6 @@
 {
   "name": "strict-tailwind-order",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Prettier plugin for strict functional Tailwind CSS class ordering and family-safe line wrapping",
   "type": "module",
   "main": "index.mjs",
