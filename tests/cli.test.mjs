@@ -773,6 +773,74 @@ test("CLI reports incompatible Prettier and official-plugin versions", async () 
 });
 
 
+test("restores double-digit Vue protection markers without prefix collisions", async () => {
+  const tagSource = `<template>
+  <p class="mb-4 px-2" />
+  <iframe class="mb-4 px-2" />
+  <span class="mb-4 px-2" />
+  <div class="mb-4 px-2" />
+  <section class="mb-4 px-2" />
+  <article class="mb-4 px-2" />
+  <header class="mb-4 px-2" />
+  <footer class="mb-4 px-2" />
+  <main class="mb-4 px-2" />
+  <aside class="mb-4 px-2" />
+  <nav class="mb-4 px-2" />
+  <label class="mb-4 px-2" />
+</template>`;
+  const entitySource = `<template>
+  <p data-values="&#65;&#66;&#67;&#68;&#69;&#70;&#71;&#72;&#73;&#74;&#75;" />
+</template>`;
+
+  const tagProtection = protectVueSelfClosingHtmlForOfficial(tagSource);
+  const entityProtection = protectVueSelfClosingHtmlForOfficial(entitySource);
+
+  assert.equal(tagProtection.protectedCount, 12);
+  assert.equal(tagProtection.restore(tagProtection.text), tagSource);
+  assert.equal(entityProtection.restore(entityProtection.text), entitySource);
+
+  await withConsumer(async (directory) => {
+    const tagFilepath = write(directory, "src/Tags.vue", tagSource);
+    const entityFilepath = write(directory, "src/Entities.vue", entitySource);
+    const pipeline = await pipelineFor(directory);
+    const tagOutput = await formatThroughPipeline(
+      tagSource,
+      tagFilepath,
+      directory,
+      pipeline,
+    );
+    const entityOutput = await formatThroughPipeline(
+      entitySource,
+      entityFilepath,
+      directory,
+      pipeline,
+    );
+
+    assert.equal(
+      await formatThroughPipeline(tagOutput, tagFilepath, directory, pipeline),
+      tagOutput,
+    );
+    assert.equal(
+      await formatThroughPipeline(
+        entityOutput,
+        entityFilepath,
+        directory,
+        pipeline,
+      ),
+      entityOutput,
+    );
+    assert.match(tagOutput, /<iframe class="px-2 mb-4" \/>/);
+    assert.match(tagOutput, /<nav class="px-2 mb-4" \/>/);
+    assert.match(tagOutput, /<label class="px-2 mb-4" \/>/);
+    assert.doesNotMatch(tagOutput, /<(?:iframe|nav|label)\d+\b/);
+    assert.doesNotMatch(entityOutput, /&\d+/);
+    assert.doesNotMatch(
+      `${tagOutput}\n${entityOutput}`,
+      /StrictTailwindOrderSelfClosing/,
+    );
+  });
+});
+
 test("protects complex regular HTML self-closing Vue elements before the official stage and restores them before strict", async () => {
   await withConsumer(async (directory) => {
     const source = `<template>

@@ -1,22 +1,121 @@
-# Test Report — Unreleased two-stage CLI compatibility update
+# Test Report — strict-tailwind-order 1.0.1 release and 1.0.2 candidate
 
-Test date: 2026-06-26
+Validation date: 2026-06-29
 
 ## Release and Git state
 
-- Public npm version: `strict-tailwind-order@1.0.0`.
-- Current package version field: `1.0.0`.
-- The code covered by this report is unreleased local code intended for the `develop` branch.
-- No branch switch, commit, merge, push, tag, release, version change, changelog release entry, or npm publication was performed.
-- A real OIDC publication of a new version remains unverified.
-- The newest supplied source archive did not contain `.git`, so its exact `develop` branch, commit, remote, tags, and clean working-tree state could not be independently verified from that archive.
-- A separate older archive contained Git metadata for historical `master` commit `bcd7b8c700b8cf95fa9998d7e1a50594e55e7ab4` and tag `v1.0.0`; it was not used as the implementation source of truth.
+- Published npm version: `strict-tailwind-order@1.0.1`.
 
-## Changes implemented
+- Current package version: `1.0.2`.
+
+- Public/default branch: `master`.
+
+- Release commit:
+
+  ```text
+  2c7d938
+  ```
+
+- Release tag:
+
+  ```text
+  v1.0.1
+  ```
+
+- The `develop` implementation was merged into `master`.
+
+- `master` and `v1.0.1` were pushed to GitHub.
+
+- The `Publish to npm` GitHub Actions workflow completed successfully.
+
+- The npm registry reports version `1.0.1`.
+
+- Publication through npm Trusted Publisher and GitHub Actions OIDC is verified.
+
+- The release workflow did not use a fixed npm publication token.
+
+## 1.0.2 regression fix validation
+
+- Published npm version remains `strict-tailwind-order@1.0.1`.
+- Local candidate version is `1.0.2`; it is not tagged or published.
+- The candidate changes are uncommitted over sanitized `master` commit `2380e812`.
+- Fixed prefix collisions between markers such as `Element1` and `Element10` and between `Entity1` and `Entity10`.
+- Marker names now include an unambiguous terminator, and restoration processes longer markers first.
+- Added regression coverage for 12 protected self-closing HTML elements and 11 protected entity-like attribute values.
+
+Automated suite:
+
+```text
+tests 121
+pass 121
+fail 0
+```
+
+Package verification:
+
+```text
+npm pack --dry-run passed
+package files 19
+```
+
+### Nine-project consumer matrix
+
+All project names remain anonymized.
+
+| Consumer | Targets | Relevant files | First-write changes | Second-write changes | Placeholder leaks | Tag-structure differences | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Consumer-A | 1 | 9 | 8 | 0 | 0 | 0 | passed |
+| Consumer-B | 1 | 80 | 64 | 0 | 0 | 0 | formatting passed; build archive dependency missing |
+| Consumer-C | 1 | 17 | 12 | 0 | 0 | 0 | passed |
+| Consumer-D | 2 | 32 | 20 | 0 | 0 | 0 | passed |
+| Consumer-E | 1 | 18 | 15 | 0 | 0 | 0 | passed |
+| Consumer-F | 1 | 9 | 8 | 0 | 0 | 0 | one existing syntax error remained unchanged |
+| Consumer-G | 1 | 60 | 43 | 0 | 0 | 0 | passed |
+| Consumer-H | 2 | 26 | 0 | 0 | 0 | 0 | passed |
+| Consumer-I | 1 | 11 | 8 | 0 | 0 | 0 | passed |
+| Total | 11 | 262 | 178 | 0 | 0 | 0 | formatting regression passed |
+
+Additional structural validation:
+
+```text
+regular lowercase self-closing elements inspected 964
+files containing at least 10 protected elements 29
+hash differences between first and second write 0
+build targets passed 10/11
+```
+
+The existing syntax failure in `Consumer-F` is a malformed decimal entity missing a semicolon. The file hash remained unchanged. The single build failure in `Consumer-B` is caused by a dependency absent from the supplied archive, not by formatter output.
+
+No `iframe0`, numbered replacement tag, entity marker, or `StrictTailwindOrderSelfClosing` marker leaked into final output.
+
+## Released architecture
+
+The supported combined formatting path is:
+
+```text
+source
+→ Prettier + prettier-plugin-tailwindcss
+→ Prettier + strict-tailwind-order
+→ final output
+```
+
+The architecture guarantees:
+
+- the official plugin runs first;
+- strict sorting runs afterward;
+- strict family-safe wrapping is the final class-value operation;
+- the two sorter plugins run in separate Prettier calls;
+- both stages run in memory;
+- `--write` writes only after both stages succeed;
+- `--check` uses the same pipeline and does not modify files;
+- no fork, vendor copy, or reimplementation of the official plugin is used;
+- plugin-array order is not used to sequence the two sorter plugins.
+
+## Changes included in 1.0.1
 
 ### Explicit Prettier config
 
-The CLI now supports:
+The CLI supports:
 
 ```text
 --config <path>
@@ -25,91 +124,209 @@ The CLI now supports:
 --config-path=<path>
 ```
 
-The option can appear before or after inputs. Relative paths resolve from `cwd`; absolute paths are supported. Missing paths, directories, and invalid configuration files return exit code 2 with a clear error.
+The option can appear before or after inputs.
 
-The explicit configuration is loaded through Prettier's API for every filepath, so `overrides`, additional plugins, official Tailwind options, relative stylesheet paths, and existing environment variables such as `PAGE` are preserved in both stages. No temporary config is written and no environment value is invented.
+Supported behavior:
 
-No silent fallback for `config/prettier.config.mjs` was added. Explicit `--config` is the generic, deterministic solution and avoids ambiguous config selection.
+- relative paths resolve from `cwd`;
+- absolute paths are supported;
+- paths containing spaces are supported;
+- Windows-style separators are supported;
+- missing config paths return exit code 2;
+- directory paths return exit code 2;
+- invalid config files return exit code 2;
+- explicit config is applied to both pipeline stages;
+- filepath-based `overrides` are preserved;
+- additional consumer plugins are preserved;
+- official Tailwind options are preserved;
+- relative stylesheet paths resolve relative to the config file;
+- existing environment variables such as `PAGE` remain available;
+- no temporary config file is written;
+- no environment variable is invented.
+
+No silent fallback for `config/prettier.config.mjs` was added. Explicit `--config` remains the deterministic generic solution.
 
 ### Vue regular HTML self-closing compatibility
 
-Before the official stage, regular lowercase HTML elements written as self-closing Vue template elements are protected with unique reversible markers. The original names are restored before the strict stage.
+Before the official stage, regular lowercase HTML elements written as self-closing Vue template elements are protected through reversible markers.
 
-Entity-like ampersands inside non-class attributes of protected elements are also protected temporarily. This is required by the real `Consumer-H/src/components/Price.vue` input, which contains `v-text="'&#8362'"` on a self-closing regular HTML element.
+The original names and protected attribute content are restored before the strict stage.
 
-The compatibility layer does not change class values, components, void elements, already-closed regular elements, comments, script strings, style content, directives, `:class`, `v-bind:class`, or `:key`. The final structure remains self-closing.
+The compatibility layer preserves:
 
-### Error categories and help
+- class values;
+- `v-if`;
+- `v-for`;
+- `v-text`;
+- `:class`;
+- `v-bind:class`;
+- `:key`;
+- additional directives and attributes;
+- Vue components;
+- void elements;
+- elements that already have closing tags;
+- comments;
+- script strings;
+- style content.
 
-- Non-syntax failures can now be identified as `[official]` or `[strict]`.
-- Syntax failures remain `[syntax]`.
-- CLI help documents `--config` and the `--config-path` alias.
+The final element remains self-closing.
 
-## Files changed
+The compatibility layer does not:
+
+- convert `<p ... />` to `<p ...></p>`;
+- convert it to a fragment;
+- skip the official plugin;
+- skip the strict stage;
+- hide class values from either sorter;
+- change the meaning of the Vue template.
+
+### CLI errors and help
+
+The CLI can distinguish:
+
+```text
+[syntax]
+[official]
+[strict]
+```
+
+The help output documents `--config` and the `--config-path` alias.
+
+## Files changed for the compatibility implementation
 
 Runtime and tests:
 
-- `lib/cli.mjs`
-- `lib/vue-self-closing.cjs`
-- `tests/cli.test.mjs`
+```text
+lib/cli.mjs
+lib/vue-self-closing.cjs
+tests/cli.test.mjs
+```
 
-Documentation:
+Documentation included before the release:
 
-- `README.md`
-- `TEST-REPORT.md`
+```text
+README.md
+TEST-REPORT.md
+```
 
-No protected sorting file was edited. `package.json`, version, release workflow, type declarations, and changelog release history were not changed.
+Release metadata:
 
-## Baseline before this compatibility update
+```text
+package.json
+package-lock.json
+```
 
-A clean install was performed with:
+Post-release documentation update:
+
+```text
+CHANGELOG.md
+TEST-REPORT.md
+```
+
+The post-release `CHANGELOG.md` update was not included in the already-published `1.0.1` npm tarball.
+
+No protected sorting-engine file was edited.
+
+## Baseline before the compatibility update
+
+A clean installation was performed with:
 
 ```bash
 npm ci --ignore-scripts
 ```
 
-Results before editing the current snapshot:
+Baseline results:
 
-- Prettier 3.7.3 + `prettier-plugin-tailwindcss@0.8.0`: 113 passed, 0 failed.
-- Prettier 3.8.4 + `prettier-plugin-tailwindcss@0.8.0`: 113 passed, 0 failed.
-- Sorting regression cases captured: 31.
-- Protected runtime hashes captured: 5.
+| Matrix                                 | Passed | Failed |
+| -------------------------------------- | -----: | -----: |
+| Prettier 3.7.3 + official plugin 0.8.0 |    113 |      0 |
+| Prettier 3.8.4 + official plugin 0.8.0 |    113 |      0 |
 
-These baseline results were generated again before the implementation and were not copied from a historical report.
+Additional baseline captures:
+
+- sorting regression cases: 31;
+- protected runtime hashes: 5.
+
+These baseline results were regenerated before implementation and were not copied from an older historical report.
 
 ## Package tests after implementation
 
-- Prettier 3.7.3 + official plugin 0.8.0: 120 passed, 0 failed.
-- Prettier 3.8.4 + official plugin 0.8.0: 120 passed, 0 failed.
-- Node 20.19.0 with the current default dependency set: 120 passed, 0 failed.
-- Node 22.16.0 with the current default dependency set: 120 passed, 0 failed.
-- Node 24.0.0 with the current default dependency set: 120 passed, 0 failed.
+| Environment                            | Passed | Failed |
+| -------------------------------------- | -----: | -----: |
+| Prettier 3.7.3 + official plugin 0.8.0 |    120 |      0 |
+| Prettier 3.8.4 + official plugin 0.8.0 |    120 |      0 |
+| Node.js 20.19                          |    120 |      0 |
+| Node.js 22.16                          |    120 |      0 |
+| Node.js 24                             |    120 |      0 |
+| Windows local repository run           |    120 |      0 |
 
-The added coverage includes:
+The Windows local run used:
 
-- simple and complex regular HTML self-closing Vue elements;
-- `v-if`, `v-for`, `v-text`, `:class`, `v-bind:class`, and `:key`;
-- entity-like attribute content from the real failure;
-- components, void elements, closed elements, comments, script strings, and style content;
-- official intermediate output and strict final output;
+```bash
+npm ci --ignore-scripts
+npm test
+```
+
+Result:
+
+```text
+tests 120
+pass 120
+fail 0
+```
+
+Coverage added for 1.0.1 includes:
+
+- simple regular HTML self-closing Vue elements;
+- complex self-closing Vue elements;
+- `v-if`;
+- `v-for`;
+- `v-text`;
+- `:class`;
+- `v-bind:class`;
+- `:key`;
+- entity-like content in non-class attributes;
+- components;
+- void elements;
+- closed regular elements;
+- comments;
+- script strings;
+- style content;
+- official intermediate output;
+- strict final output;
 - second-run idempotence;
-- relative and absolute explicit config paths;
-- config before and after inputs;
-- `--config-path` alias;
-- paths with spaces and Windows-style separators;
-- missing config, directory config, and syntax-invalid config;
-- config `overrides`, additional plugins, `tailwindStylesheet`, and `process.env.PAGE`;
-- `--write`, `--check`, current-file execution, and no partial writes.
+- relative explicit config;
+- absolute explicit config;
+- config before inputs;
+- config after inputs;
+- `--config-path`;
+- config paths with spaces;
+- Windows-style separators;
+- missing config;
+- directory config;
+- syntax-invalid config;
+- config `overrides`;
+- additional plugins;
+- `tailwindStylesheet`;
+- `process.env.PAGE`;
+- `--write`;
+- `--check`;
+- current-file execution;
+- no partial writes;
+- missing dependencies;
+- incompatible dependency versions.
 
 ## Protected sorting contract
 
-`tests/sort.test.cjs` still contains exactly 31 regression tests. Its SHA-256 remained unchanged:
+`tests/sort.test.cjs` still contains exactly 31 sorting regression tests.
+
+Its SHA-256 remained unchanged:
 
 ```text
 6580ea62303a002453f10d0e5d9d0054118ca8ef7d3c4ae2e5eefefc00088dae
 ```
 
-All five protected runtime hashes match the baseline exactly:
+All five protected runtime hashes remained unchanged:
 
 ```text
 5383cac01362ea2b4d8e1b434c38c54fa20f898316c9fccd47a2c41d58d10c9f  lib/classify.cjs
@@ -121,64 +338,111 @@ All five protected runtime hashes match the baseline exactly:
 
 No expected sorting output was edited.
 
+The update did not change:
+
+- category ranks;
+- category precedence;
+- family definitions;
+- subgroup definitions;
+- utility classification;
+- base/variant grouping;
+- breakpoint precedence;
+- state precedence;
+- variant-key generation;
+- comparator logic;
+- tie-breakers;
+- unknown-class placement;
+- relative stability of unknown classes;
+- family adjacency;
+- wrapping behavior that affects ordering or splits a family.
+
 ## Eight-project consumer matrix
 
-Each archive was extracted to a separate temporary working copy. Original archives were not modified. Existing bundled `node_modules` directories were not used. The pipeline was executed through the package binary with both Prettier 3.7.3 and 3.8.4 and official plugin 0.8.0.
+Each supplied archive was extracted into a separate temporary working copy.
 
-The relevant-file manifest contained 281 files. Both Prettier versions produced byte-for-byte identical final output for every successful file.
+The original archives were not modified.
 
-| Project | Relevant | Successful from original source | Changed on first write | Written on second write | Final result |
-| --- | ---: | ---: | ---: | ---: | --- |
-| `Consumer-A` | 10 | 10 | 10 | 0 | passed |
-| `Consumer-B` | 80 | 80 | 67 | 0 | passed |
-| `Consumer-C` | 33 | 33 | 12 | 0 | passed with explicit config |
-| `Consumer-D` | 51 | 51 | 20 | 0 | passed with explicit config and PAGE |
-| `Consumer-E` | 38 | 38 | 16 | 0 | passed with explicit config and PAGE |
-| `Consumer-F` | 12 | 11 | 11 | 0 | one existing syntax error |
-| `Consumer-G` | 45 | 45 | 0 | 0 | passed with explicit config |
-| `Consumer-H` | 12 | 12 | 8 | 0 | passed, including real Price.vue |
-| **Total** | **281** | **280** | **144** | **0** | **one source syntax error** |
+Bundled or old `node_modules` directories were not used.
+
+Each project was tested with:
+
+```text
+Prettier 3.7.3
+Prettier 3.8.4
+prettier-plugin-tailwindcss 0.8.0
+```
+
+The relevant-file manifest contained 281 files.
+
+Both Prettier versions produced byte-for-byte identical final output for every successful file.
+
+| Project                  | Relevant files | Successful from original source | Changed on first write | Written on second write | Result                               |
+| ------------------------ | -------------: | ------------------------------: | ---------------------: | ----------------------: | ------------------------------------ |
+| `Consumer-A` |             10 |                              10 |                     10 |                       0 | passed                               |
+| `Consumer-B`         |             80 |                              80 |                     67 |                       0 | passed                               |
+| `Consumer-C`           |             33 |                              33 |                     12 |                       0 | passed with explicit config          |
+| `Consumer-D`       |             51 |                              51 |                     20 |                       0 | passed with explicit config and PAGE |
+| `Consumer-E`        |             38 |                              38 |                     16 |                       0 | passed with explicit config and PAGE |
+| `Consumer-F`     |             12 |                              11 |                     11 |                       0 | one existing syntax error            |
+| `Consumer-G`     |             45 |                              45 |                      0 |                       0 | passed with explicit config          |
+| `Consumer-H`               |             12 |                              12 |                      8 |                       0 | passed, including real Price.vue     |
+| **Total**                |        **281** |                         **280** |                **144** |                   **0** | **one invalid source file**          |
 
 For every successful group:
 
 1. initial `--check` behaved as expected;
 2. first `--write` succeeded;
 3. second `--write` wrote zero files;
-4. final `--check` returned 0;
-5. no partial write, config failure, stylesheet failure, sorting failure, wrapping failure, or idempotence failure occurred.
+4. final `--check` returned exit code 0;
+5. no partial write occurred;
+6. no config-resolution failure occurred;
+7. no stylesheet-resolution failure occurred;
+8. no sorting failure occurred;
+9. no wrapping failure occurred;
+10. no idempotence failure occurred.
 
-Among the selected 281 relevant files:
+Failure totals:
 
-- parser/syntax errors: 1;
-- official-plugin errors after the compatibility fix: 0;
-- strict errors: 0;
-- config-resolution failures: 0;
-- stylesheet-discovery failures: 0;
-- sorting failures: 0;
-- wrapping failures: 0;
-- idempotence failures: 0;
-- partial-write failures: 0;
-- ignored files: 0;
-- unsupported files: 0.
+```text
+parser/syntax errors:        1
+official-plugin errors:      0
+strict errors:               0
+config-resolution failures:  0
+stylesheet failures:         0
+sorting failures:            0
+wrapping failures:           0
+idempotence failures:        0
+partial-write failures:      0
+ignored relevant files:      0
+unsupported relevant files:  0
+```
 
-### Proof of stage order
+## Proof of stage order
 
-Stage-level analysis on the original inputs showed that the official stage changed files and the strict stage then changed official output again:
+Stage-level analysis showed that the official stage changed source files and that the strict stage then changed official output again.
 
-| Project | Official stage changed | Strict stage changed |
-| --- | ---: | ---: |
-| `Consumer-A` | 10 | 4 |
-| `Consumer-B` | 66 | 64 |
-| `Consumer-C` | 13 | 13 |
-| `Consumer-D` | 1 | 20 |
-| `Consumer-E` | 3 | 15 |
-| `Consumer-F` valid files | 11 | 5 |
-| `Consumer-G` | 18 | 18 |
-| `Consumer-H` | 8 | 5 |
+| Project                          | Official stage changed | Strict stage changed afterward |
+| -------------------------------- | ---------------------: | -----------------------------: |
+| `Consumer-A`         |                     10 |                              4 |
+| `Consumer-B`                 |                     66 |                             64 |
+| `Consumer-C`                   |                     13 |                             13 |
+| `Consumer-D`               |                      1 |                             20 |
+| `Consumer-E`                |                      3 |                             15 |
+| `Consumer-F` valid files |                     11 |                              5 |
+| `Consumer-G`             |                     18 |                             18 |
+| `Consumer-H`                       |                      8 |                              5 |
 
-This verifies official-first and strict-last behavior. `Consumer-G` is notable: both stages changed intermediate output even though the final strict output was already byte-identical to the source.
+This confirms:
 
-### Explicit config projects
+```text
+official first
+strict second
+strict wrapping last
+```
+
+`Consumer-G` is notable because both stages changed intermediate output even though the final strict result was already byte-identical to the original source.
+
+## Explicit config projects
 
 The following projects were run with:
 
@@ -191,52 +455,194 @@ The following projects were run with:
 - `Consumer-E`
 - `Consumer-G`
 
-`Consumer-D` was run separately with `PAGE=01` and `PAGE=02-temp`; both official and strict stages resolved the matching page stylesheet. `Consumer-E` was run with `PAGE=01` and both stages resolved `pages/01/src/main.css`.
+`Consumer-D` was tested separately with:
 
-The supplied `Consumer-C` and `Consumer-G` configs do not declare `tailwindStylesheet`; their explicit Prettier formatting options were loaded, while strict stylesheet discovery resolved the page stylesheets. No config structure or PAGE logic was modified to make the tests pass.
+```text
+PAGE=01
+PAGE=02-temp
+```
 
-### `Consumer-H`
+Both stages resolved the matching page stylesheet.
 
-`Consumer-H/src/components/Price.vue` now passes without changing the consumer source before formatting.
+`Consumer-E` was tested with:
+
+```text
+PAGE=01
+```
+
+Both stages resolved:
+
+```text
+pages/01/src/main.css
+```
+
+The supplied `Consumer-C` and `Consumer-G` configs do not declare `tailwindStylesheet`.
+
+Their explicit Prettier options were loaded, while strict stylesheet discovery resolved the page stylesheets.
+
+No config structure or PAGE logic was modified merely to make the tests pass.
+
+## `Consumer-H`
+
+The real file:
+
+```text
+Consumer-H/src/components/Price.vue
+```
+
+passes without changing the consumer source before formatting.
 
 After the complete pipeline:
 
-- three regular `<p ... />` template elements remained self-closing;
+- three regular `<p ... />` elements remained self-closing;
 - zero empty `<p></p>` replacements were created;
 - no fragment was created;
-- class values received official processing and strict final ordering;
-- the second write produced no change;
-- both Prettier versions produced SHA-256 `78c012770209bedb7dd6d83dda35df52cc35536d6482a649aaf088922f21b492` for the final file.
+- official class processing occurred;
+- strict final ordering occurred;
+- second write produced no change;
+- both Prettier versions produced identical final output.
 
-### `Consumer-F`
+Final file SHA-256:
+
+```text
+78c012770209bedb7dd6d83dda35df52cc35536d6482a649aaf088922f21b492
+```
+
+## `Consumer-F`
 
 Original source behavior:
 
-- `dev/src/js/Components/Price.vue` contains `&#8362` without a semicolon.
-- The CLI returned exit code 2 with a `[syntax]` error.
-- The file hash remained unchanged, proving no partial write.
-- The other 11 files passed and were idempotent.
+```text
+dev/src/js/Components/Price.vue
+```
 
-Temporary compatibility copy:
+contains:
 
-- Only in a separate temporary copy, `&#8362` was changed to `&#8362;`.
-- All 12 files then passed.
-- First write changed 12 files.
-- Second write changed 0 files.
-- Final check returned 0.
-- Final output was byte-identical between Prettier 3.7.3 and 3.8.4.
+```html
+&#8362
+```
 
-The original archive was not changed, and the temporary correction is not presented as a project fix.
+without a terminating semicolon.
 
-## Recommended consumer installation and scripts
+Result on the original source:
 
-### `Consumer-A` (`dev` directory)
+- CLI exit code: 2;
+- error category: `[syntax]`;
+- the invalid file remained unchanged;
+- no partial write occurred;
+- the other 11 relevant files passed;
+- the other 11 files were idempotent.
 
-The archive contains both npm and pnpm lockfiles. Select one canonical package manager; the recommended pnpm command is:
+Temporary compatibility-copy behavior:
+
+- only in a separate temporary copy, `&#8362` was changed to `&#8362;`;
+- all 12 relevant files then passed;
+- first write changed 12 files;
+- second write changed 0 files;
+- final check returned 0;
+- final output was identical between Prettier 3.7.3 and 3.8.4.
+
+The original archive was not modified.
+
+The temporary correction is not presented as a package fix.
+
+## Windows verification in `Consumer-I`
+
+The released implementation was integrated into the real Windows consumer project:
+
+```text
+<LOCAL_USER_PATH>\Desktop\Consumer-I
+```
+
+The project uses:
+
+```text
+config/prettier.config.mjs
+pages/01/src/main.css
+pages/02/src/main.css
+```
+
+The PAGE-aware proxy was changed from raw Prettier to:
+
+```text
+strict-tailwind-order
+```
+
+with:
+
+```text
+--config config/prettier.config.mjs
+```
+
+The proxy retained:
+
+```ts
+const env = { ...process.env, PAGE: p };
+```
+
+Each page is passed separately:
+
+```text
+PAGE=01 → pages/01
+PAGE=02 → pages/02
+```
+
+### Page 01
+
+Initial check reported 14 files requiring formatting.
+
+Results:
+
+```text
+first write: 14 files written
+second write: 0 files written
+final check: passed
+```
+
+### Page 02
+
+Initial check reported 6 files requiring formatting.
+
+Results:
+
+```text
+first write: 6 files written
+second write: 0 files written
+final check: passed
+```
+
+### All pages
+
+The following command passed:
 
 ```bash
-pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
+pnpm run format:check all
 ```
+
+Execution confirmed:
+
+```text
+PAGE=01 → pages/01
+PAGE=02 → pages/02
+```
+
+The explicit config, PAGE value, and matching stylesheet were applied independently for each page.
+
+## Recommended consumer installation
+
+Published package installation:
+
+```bash
+npm install -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order@1.0.1
+```
+
+With pnpm:
+
+```bash
+pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order@1.0.1
+```
+
+### Standard config location
 
 ```json
 {
@@ -247,28 +653,20 @@ pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-or
 }
 ```
 
-### `Consumer-B`
-
-```bash
-npm install -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
-```
+### Config in `config/prettier.config.mjs`
 
 ```json
 {
   "scripts": {
-    "format": "strict-tailwind-order --write resources/builds/default/",
-    "format:check": "strict-tailwind-order --check resources/builds/default/"
+    "format": "strict-tailwind-order --write . --config config/prettier.config.mjs",
+    "format:check": "strict-tailwind-order --check . --config config/prettier.config.mjs"
   }
 }
 ```
 
-### `Consumer-C`, `Consumer-D`, `Consumer-E`, and `Consumer-G`
+### PAGE-aware multi-page projects
 
-```bash
-pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
-```
-
-Keep the existing PAGE-aware `script-proxy.ts`, but replace the raw formatter command with:
+Keep the existing proxy but replace raw Prettier with:
 
 ```ts
 format: {
@@ -281,125 +679,217 @@ format: {
 },
 ```
 
-The existing file-argument handling should apply to both `format` and `format:check`. Keep the existing `{...process.env, PAGE: p}` behavior unchanged.
+Retain:
 
-Recommended package scripts:
-
-```json
-{
-  "scripts": {
-    "format": "tsx config/script-proxy.ts format",
-    "format:check": "tsx config/script-proxy.ts format:check"
-  }
-}
+```ts
+const env = { ...process.env, PAGE: p };
 ```
 
-Examples:
+Each iteration should pass only its own page directory.
+
+Example:
+
+```ts
+taskArgs.push(`pages/${p}`);
+```
+
+Commands:
 
 ```bash
-pnpm format 01
-pnpm format:check 01
-pnpm format all
-pnpm format:check all
+pnpm run format 01
+pnpm run format:check 01
+pnpm run format all
+pnpm run format:check all
 ```
 
-### `Consumer-F` (`dev` directory)
+## Package verification before release
 
-The archive contains both npm and pnpm lockfiles. Select one canonical package manager; the recommended pnpm command is:
+The final runtime code was packed locally before the version bump.
 
-```bash
-pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
+Results:
+
+```text
+npm pack --dry-run: passed
+npm pack: passed
+package files: 19
+packed size: 32.5 kB
+unpacked size: 131.6 kB
 ```
 
-```json
-{
-  "scripts": {
-    "format": "strict-tailwind-order --write .",
-    "format:check": "strict-tailwind-order --check ."
-  }
-}
+Local pre-release artifact SHA-1:
+
+```text
+cecee9323f99d47d37899451eea3bf3b2760a315
 ```
 
-The existing malformed entity must be corrected in the consumer project before a full-project format can pass; the CLI should not silently repair invalid source syntax.
+The package contained:
 
-### `Consumer-H`
+- the binary;
+- `lib/cli.mjs`;
+- `lib/vue-self-closing.cjs`;
+- all required runtime modules;
+- README;
+- LICENSE;
+- the then-current CHANGELOG;
+- package metadata.
 
-```bash
-pnpm add -D prettier@^3.7.0 prettier-plugin-tailwindcss@0.8.0 strict-tailwind-order
-```
+The package excluded:
 
-```json
-{
-  "scripts": {
-    "format": "strict-tailwind-order --write src",
-    "format:check": "strict-tailwind-order --check src"
-  }
-}
-```
+- tests;
+- fixtures;
+- `.git`;
+- GitHub workflow files;
+- `node_modules`;
+- package lock;
+- Project Sources;
+- temporary consumers;
+- coverage;
+- caches;
+- ZIP files;
+- older TGZ files.
 
-## Package verification
+The local artifact used version metadata `1.0.0` before the final version bump.
 
-- `npm pack --dry-run`: passed.
-- `npm pack`: passed.
-- Generated archive: `strict-tailwind-order-1.0.0.tgz`.
-- Package files: 19.
-- Packed size: 32,522 bytes.
-- Unpacked size: 131,551 bytes.
-- npm SHA-1: `619b65c9dc35cd3e76a39c5e875e7a7e413424a2`.
-- SHA-256: `0e2bf39f59cb6f754f10fe27550b83a137923c377ca3f78df671bc1a73761304`.
-- SHA-512 integrity: `sha512-5rr0wdSXoHtFpCdZQg7f+2L7wQULSHn+cxppp4Qw8eq6gUnSI+EBrHiMGBX01RELOExmKmeaQjF+tDBFVzXD6g==`.
-- The binary, updated `lib/cli.mjs`, and updated `lib/vue-self-closing.cjs` are included.
-- Tests, fixtures, `.git`, workflow files, package lock, Project Sources, temporary consumers, coverage, caches, ZIP files, and old TGZ files are excluded from the npm package.
+It is recorded only as pre-release package verification and is not presented as the published `1.0.1` tarball hash.
 
 ## Clean consumer verification
 
-The final TGZ was installed from the generated file into two new consumers with:
+The generated final implementation was installed into two new consumers with:
 
-- Prettier 3.7.3 or 3.8.4;
-- `prettier-plugin-tailwindcss@0.8.0`;
-- Tailwind CSS 4.3.1.
+```text
+Prettier 3.7.3
+Prettier 3.8.4
+prettier-plugin-tailwindcss 0.8.0
+Tailwind CSS 4.3.1
+```
 
 Each consumer used:
 
 - a working-directory path containing spaces;
 - a Vue current-file path containing spaces;
-- a config at `config/prettier.config.mjs`;
-- `--config`;
+- `config/prettier.config.mjs`;
+- explicit `--config`;
 - `process.env.PAGE`;
 - filepath overrides;
 - `tailwindStylesheet`;
-- a regular self-closing `<p ... />` with directives and an entity-like attribute;
-- a component, a void element, a closed regular element, a comment, a script string, and style content.
+- a regular self-closing `<p ... />`;
+- directives;
+- entity-like attribute content;
+- a component;
+- a void element;
+- a closed regular element;
+- a comment;
+- a script string;
+- style content.
 
 For both Prettier versions:
 
-- first `--write`: passed;
-- second `--write`: byte-identical;
-- `--check`: exit code 0;
-- self-closing structure preserved;
-- no fragment or empty expanded `<p></p>` created;
-- final SHA-256: `c885438b9bfcc20dd50e6b8a50fbdfd0d6b6f80452cd30c98a25af6980544b2c`.
+```text
+first --write: passed
+second --write: byte-identical
+--check: exit code 0
+self-closing structure: preserved
+fragment creation: none
+empty expanded <p></p>: none
+```
 
-The final files were byte-identical across both Prettier versions.
+The final files were byte-for-byte identical across both Prettier versions.
 
-## PhpStorm-equivalent terminal verification
+Final clean-consumer file SHA-256:
 
-The following behavior was verified through the terminal, not through the PhpStorm UI:
+```text
+c885438b9bfcc20dd50e6b8a50fbdfd0d6b6f80452cd30c98a25af6980544b2c
+```
 
-- local binary invocation on one current file;
+## PhpStorm-equivalent verification
+
+The following behavior was verified through terminal commands:
+
+- local binary invocation;
+- one current file;
 - explicit `--config config/prettier.config.mjs`;
-- file path and working directory containing spaces;
+- path containing spaces;
+- working directory containing spaces;
 - Vue regular HTML self-closing input;
 - repeated execution with no second change;
-- final `--check` success;
-- invocation without a special config path when `prettier.config.mjs` is discoverable at project root.
+- final `--check`;
+- execution without explicit config when `prettier.config.mjs` is discoverable at project root.
 
 The PhpStorm graphical interface and an actual File Watcher were not tested interactively.
 
-## Not executed
+## GitHub Actions and npm publication verification
 
-- No tests were run inside the original consumer archives; all work used separate extracted copies.
-- No external consumer project beyond the eight supplied archives and generated clean consumers was tested.
-- GitHub-hosted Actions was not executed for this local code.
-- Windows-style paths were covered by tests, but the complete final matrix was executed on Linux rather than a real Windows host.
-- No commit, push, merge, tag, release, npm publication, or new-version OIDC publication was performed.
+Release sequence:
+
+```text
+merge develop into master
+→ push master
+→ update package version to 1.0.1
+→ commit release 1.0.1
+→ create tag v1.0.1
+→ push master and v1.0.1
+→ GitHub Actions release workflow
+→ npm publication
+```
+
+The GitHub Actions run named:
+
+```text
+release 1.0.1
+```
+
+completed successfully.
+
+The publish job used:
+
+```yaml
+publish:
+  permissions:
+    contents: read
+    id-token: write
+```
+
+No fixed npm publication token was used.
+
+The npm registry was queried after the workflow completed:
+
+```bash
+npm view strict-tailwind-order version
+```
+
+Result:
+
+```text
+1.0.1
+```
+
+This verifies that:
+
+- the tag-triggered workflow ran;
+- the package was published;
+- the new version is available from the npm registry;
+- npm Trusted Publisher OIDC publication succeeded.
+
+## Post-release documentation state
+
+After publication, the repository documentation was updated to describe the completed `1.0.1` release accurately.
+
+Updated after publication:
+
+```text
+CHANGELOG.md
+TEST-REPORT.md
+```
+
+These post-release documentation changes are not part of the already-published `strict-tailwind-order@1.0.1` npm tarball unless a future version is released.
+
+The runtime code, sorting behavior, package version, release tag, and published npm artifact were not changed by this documentation update.
+
+## Remaining limitations
+
+- The original `Consumer-F` archive still contains one invalid source entity.
+- The temporary entity correction was not applied to the original archive.
+- The PhpStorm graphical File Watcher interface was not tested interactively.
+- No external consumer projects beyond the eight supplied archives, generated clean consumers, and `Consumer-I` were claimed as tested.
+- The published `1.0.1` package was not modified after publication.
+- The post-release `CHANGELOG.md` and `TEST-REPORT.md` updates are currently repository documentation and are not included in the published `1.0.1` tarball.

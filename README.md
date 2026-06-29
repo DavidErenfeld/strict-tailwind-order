@@ -165,6 +165,8 @@ The combined CLI protects regular lowercase HTML elements that are written as se
 
 The compatibility layer does not convert the element to `<p></p>` or to a fragment. It does not rewrite Vue components, void elements, already-closed regular elements, comments, script strings, style content, directives, or class bindings. Class values remain available to the official stage and are then sorted and wrapped by strict as the final operation.
 
+Protection markers are collision-safe for single- and double-digit indexes, are fully restored before the strict stage, and must never appear in final output. The regression suite covers files with more than ten protected self-closing elements and entity-like attribute values.
+
 ## Existing strict behavior
 
 - Sorts Vue and HTML `class`, JSX and TSX `className`, Vue transition class attributes, dynamic class strings, and configured helper functions.
