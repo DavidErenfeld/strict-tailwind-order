@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.0.3] - 2026-09-09
+
+### Fixed
+
+* Classified standard font-size utilities with line-height modifiers, such as `text-xl/7`, in the typography size family instead of moving them to the unknown-utility tail.
+
+* Supported named, numeric, arbitrary-value, and CSS-variable line-height modifiers without requiring consumer stylesheet discovery or configuration changes.
+
+* Supported line-height modifiers on typed Tailwind v4 font sizes such as `text-(length:--font-size)/7`.
+
+* Prevented CSS-variable line-height modifiers from being mistaken for Tailwind text-size metadata.
+
+### Tests
+
+* Added classification, sorting, plugin, invalid-syntax, configured-font-size, and full two-stage pipeline regression coverage.
+
+* Verified idempotence across eight existing consumer projects with different directory layouts and 208 Vue files.
+
 ## [1.0.2] - 2026-06-29
 
 ### Fixed

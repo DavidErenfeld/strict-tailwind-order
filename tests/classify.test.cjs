@@ -80,6 +80,34 @@ test('classifies decimal font sizes as typography size, not text color', () => {
   assert.equal(classifyUtility('text-3.5xl').family, 'text-size')
 })
 
+test('classifies standard font sizes with line-height modifiers as typography size', () => {
+  for (const utility of [
+    'text-xl/7',
+    'text-lg/6.5',
+    'text-2xl/tight',
+    'text-base/[24px]',
+    'text-sm/(--line-height)',
+    'text-xl/project-leading',
+    'text-xl/2xs',
+    'text-xl/_compact',
+    'text-xl/-compact'
+  ]) {
+    assert.equal(classifyUtility(utility).family, 'text-size', utility)
+  }
+})
+
+test('does not classify invalid line-height modifiers as typography size', () => {
+  for (const utility of ['text-xl/', 'text-xl/7/8']) {
+    assert.equal(classifyUtility(utility), null, utility)
+  }
+})
+
+test('classifies typed font sizes with line-height modifiers as typography size', () => {
+  for (const utility of ['text-(length:--font-size)/7', 'text-(size:--font-size)/(--line-height)']) {
+    assert.equal(classifyUtility(utility).family, 'text-size', utility)
+  }
+})
+
 test('supports custom theme font sizes and colors through options', () => {
   const options = {
     theme: {
@@ -89,6 +117,9 @@ test('supports custom theme font sizes and colors through options', () => {
   }
   assert.equal(classifyUtility('text-hero', options).family, 'text-size')
   assert.equal(classifyUtility('text-display', options).family, 'text-size')
+  assert.equal(classifyUtility('text-hero/none', options).family, 'text-size')
+  assert.equal(classifyUtility('text-display/[1.1]', options).family, 'text-size')
+  assert.equal(classifyUtility('text-hero/project-leading', options).family, 'text-size')
   assert.equal(classifyUtility('text-primary', options).family, 'text-color')
   assert.equal(classifyUtility('text-primary'), null)
 })

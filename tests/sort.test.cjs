@@ -26,6 +26,12 @@ test('sorts typography before colors and backgrounds', () => {
   assert.equal(sortClassSource(input), output)
 })
 
+test('sorts font sizes with line-height modifiers in the typography size family', () => {
+  const input = 'font-light mt-4 text-[#4A4A4A] text-xl/7'
+  const output = 'text-xl/7 font-light text-[#4A4A4A] mt-4'
+  assert.equal(sortClassSource(input), output)
+})
+
 test('keeps multiline whitespace layout', () => {
   const input = 'mt-8\n  flex\n  h-full'
   const output = 'h-full\n  flex\n  mt-8'

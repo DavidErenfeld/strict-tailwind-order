@@ -128,6 +128,39 @@ test("runs official sorting first and strict sorting last", async () => {
   });
 });
 
+test("keeps line-height modifiers with text sizes through the two-stage pipeline", async () => {
+  await withConsumer(async (directory) => {
+    write(
+      directory,
+      "src/app.css",
+      '@import "tailwindcss";\n@theme { --leading-project: 1.15; }\n',
+    );
+    write(
+      directory,
+      "prettier.config.mjs",
+      "export default { plugins: ['prettier-plugin-tailwindcss', 'strict-tailwind-order'], tailwindStylesheet: './src/app.css' };\n",
+    );
+    const filepath = write(
+      directory,
+      "src/App.vue",
+      '<template><div class="font-light mt-4 text-white text-xl/project"></div></template>',
+    );
+    const pipeline = await pipelineFor(directory);
+    const output = await formatThroughPipeline(
+      fs.readFileSync(filepath, "utf8"),
+      filepath,
+      directory,
+      pipeline,
+    );
+
+    assert.match(output, /class="text-xl\/project font-light text-white mt-4"/);
+    assert.equal(
+      await formatThroughPipeline(output, filepath, directory, pipeline),
+      output,
+    );
+  });
+});
+
 test("uses the same two-stage pipeline for HTML, Vue, JSX, dynamic Vue bindings, and transition attributes", async () => {
   await withConsumer(async (directory) => {
     const pipeline = await pipelineFor(directory);

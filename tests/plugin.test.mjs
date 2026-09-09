@@ -27,6 +27,15 @@ test('sorts Vue static class attributes with the strict order', async () => {
   assert.match(output, /class="h-full w-full flex items-center text-center bg-white mt-8 md:mt-0"/);
 });
 
+test('sorts font-size utilities with line-height modifiers in the typography family', async () => {
+  const output = await format(
+    '<template><div class="font-light mt-4 text-white text-xl/7"></div></template>',
+    '/tmp/project/src/App.vue',
+  );
+
+  assert.match(output, /class="text-xl\/7 font-light text-white mt-4"/);
+});
+
 test('wraps long Vue class attributes without splitting class families', async () => {
   const output = await format(
     '<template><button type="button" class="relative flex h-10 w-full cursor-pointer appearance-none items-center justify-between gap-3 bg-[#D9D9D9] px-4 text-start text-[0.9875rem]/[1] font-light text-[#1C1C1C] transition-colors duration-300 outline-none focus:ring-0 focus:outline-none">X</button></template>',
